@@ -6,9 +6,11 @@ import sqlalchemy
 from sqlalchemy.orm import sessionmaker
 import sqlite3
 
-DATABASE_LOCATION = "sqlite:///my_played_tracks.sqlite"
+DATABASE_NAME = "my_played_tracks"
+DATABASE_FILE = DATABASE_NAME + ".sqlite"
+DATABASE_LOCATION = "sqlite:///" + DATABASE_FILE
 USER_ID = "Wes"
-TOKEN = "BQAQXh_VwKOWnbHpoSYDmXzJb6_LfE6WZo8fkukRqS4plfzgCmJ0H_bki4dCumHN6k3FMGIo2OyLY4Mf-1rOX-ohqnAyR9UVGlb1Chd8L8Z9ukU1toC-jprnmqEJfKkADWQtWe86j-jkZojPSSdwU0O4giVtx90ivATIJvI9"
+TOKEN = "BQDAQeUsElI8Fx94dinYcBTXl0GH84oJ7OXlLfx1P-ut2QOb84s0BPk5HQka12yIefOSPNUKknNV6Y0JvdyDyVZS1bQ5D2zVat7P_upte8ahalwVlhkItZnIGmptF9jU8fDqXkvF8VavMSh83hVmU2segnkMNIiV9BaG2eJt"
 
 def check_valid_data(df: pd.DataFrame) -> bool:
 
@@ -53,7 +55,7 @@ if __name__ == "__main__":
     r = requests.get("https://api.spotify.com/v1/me/player/recently-played?after={time}".format(time=yesterday_ut), headers=headers)
     data = r.json()
 
-    # print(data)
+    print(data)
 
     data_song = []
     data_artist = []
@@ -75,7 +77,32 @@ if __name__ == "__main__":
 
     df_song = pd.DataFrame(dict_song, columns= ["song", "artist", "played_at", "timestamp"])
 
-    check_valid_data(df_song)
+    # Validate
+    if check_valid_data(df_song):
+        print("Data valid, proceeding to loading stage")
 
-    # print(df_song)
-    
+    # Load
+    engine = sqlalchemy.create_engine(DATABASE_LOCATION)
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+
+    sql_query = """
+    CREATE TABLE IF NOT EXISTS my_played_tracks(
+        song VARCHAR(200),
+        artist VARCHAR(200),
+        played_at VARCHAR(200),
+        timestamp VARCHAR(200),
+        CONSTRAINT primary_key_constraint PRIMARY KEY (played_at)
+    )
+    """
+
+    cursor.execute(sql_query)
+    print("Database successfully opened.")
+
+    try:
+        df_song.to_sql(DATABASE_NAME, engine, index=False, if_exists="append")
+    except:
+        print("Data already exists in the database")
+
+    conn.close()
+    print("Database successfuly closed.")
